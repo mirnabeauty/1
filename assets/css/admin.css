@@ -8,7 +8,8 @@
 .admin-topbar-actions .btn{padding:8px 14px;font-size:13px}
 .admin-shell{display:grid;grid-template-columns:200px 1fr;gap:24px;padding:24px;max-width:1300px;margin:auto}
 .admin-tabs{display:flex;flex-direction:column;gap:8px}
-.admin-tab{border:1px solid var(--line);background:#fff;border-radius:14px;padding:14px;text-align:right;cursor:pointer;font-weight:700;color:var(--muted)}
+.admin-tab{position:relative;border:1px solid var(--line);background:#fff;border-radius:14px;padding:14px;text-align:right;cursor:pointer;font-weight:700;color:var(--muted)}
+.tab-badge{display:none;position:absolute;top:-7px;left:-7px;background:var(--rose);color:#fff;font-size:11px;font-weight:800;min-width:20px;height:20px;border-radius:10px;place-items:center;padding:0 5px;box-shadow:0 0 0 2px #fff}
 .admin-tab.active{background:var(--ink);color:#fff;border-color:var(--ink)}
 .admin-panel-grid{display:grid;grid-template-columns:1fr 1.3fr;gap:24px;align-items:start}
 .admin-list-card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:20px}

@@ -7,7 +7,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
-  query, orderBy, writeBatch, serverTimestamp
+  query, orderBy, writeBatch, serverTimestamp, onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { IMGBB_API_KEY } from "./imgbb-config.js";
 
@@ -78,6 +78,7 @@ function activateTab(btn){
   btn.classList.add('active');
   document.querySelectorAll('.admin-panel').forEach(p => p.hidden = true);
   document.getElementById('panel-' + btn.dataset.tab).hidden = false;
+  if (btn.dataset.tab === 'orders') { newOrdersCount = 0; updateOrdersBadge(); }
 }
 
 document.querySelectorAll('.admin-tab').forEach(btn => {
@@ -93,7 +94,10 @@ async function initDashboard(){
   wireTeamForm();
   await loadCategories(); // categories are public-read and feed the product form's select regardless of the "categories" tab permission
   if (canSee('products')) await loadProducts();
-  if (canSee('orders')) await loadOrders();
+  if (canSee('orders')) {
+    loadOrders();
+    if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+  }
   if (currentAdmin.role === 'owner') await loadTeam();
 }
 
@@ -323,11 +327,55 @@ async function deleteProduct(id){
 
 // ---- orders ----
 const STATUS_LABELS = { pending: 'قيد الانتظار', confirmed: 'مؤكد', shipped: 'قيد التوصيل', delivered: 'تم التسليم', cancelled: 'ملغي' };
+let ordersUnsub = null;
+let newOrdersCount = 0;
+let ordersFirstSnapshot = true;
 
-async function loadOrders(){
-  let snap = await getDocs(query(collection(db, 'orders'), orderBy('createdAt', 'desc')));
-  let orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  renderOrders(orders);
+function loadOrders(){
+  if (ordersUnsub) return; // already listening
+  ordersUnsub = onSnapshot(query(collection(db, 'orders'), orderBy('createdAt', 'desc')), snap => {
+    let orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderOrders(orders);
+    if (!ordersFirstSnapshot) {
+      snap.docChanges().forEach(change => {
+        if (change.type === 'added') notifyNewOrder({ id: change.doc.id, ...change.doc.data() });
+      });
+    }
+    ordersFirstSnapshot = false;
+  }, err => console.error(err));
+}
+
+function updateOrdersBadge(){
+  let btn = document.querySelector('.admin-tab[data-tab="orders"]');
+  if (!btn) return;
+  let badge = btn.querySelector('.tab-badge');
+  if (!badge) { badge = document.createElement('span'); badge.className = 'tab-badge'; btn.appendChild(badge); }
+  badge.textContent = newOrdersCount;
+  badge.style.display = newOrdersCount > 0 ? 'grid' : 'none';
+}
+
+function playNotifySound(){
+  try {
+    let ctx = new (window.AudioContext || window.webkitAudioContext)();
+    let o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = 880;
+    g.gain.setValueAtTime(0.15, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    o.start(); o.stop(ctx.currentTime + 0.5);
+  } catch (e) {}
+}
+
+function notifyNewOrder(order){
+  newOrdersCount++;
+  updateOrdersBadge();
+  playNotifySound();
+  toast(`🛍 طلب جديد — ${order.customerName || ''} (${order.code || ''})`);
+  if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
+    new Notification('طلب جديد بمتجر ميرنا بيوتي', {
+      body: `${order.code || ''} — ${order.customerName || ''} — ${Number(order.total || 0).toLocaleString('ar-IQ')} د.ع`
+    });
+  }
 }
 
 function renderOrders(orders){
