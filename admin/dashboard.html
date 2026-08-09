@@ -5,6 +5,7 @@
 <button class="admin-tab active" data-tab="products">المنتجات</button>
 <button class="admin-tab" data-tab="categories">الأقسام</button>
 <button class="admin-tab" data-tab="orders">الطلبات</button>
+<button class="admin-tab" data-tab="team" id="team-tab-btn" hidden>الفريق</button>
 </nav>
 <main class="admin-content">
 
@@ -55,6 +56,27 @@
   <div class="admin-list-card">
     <h3>الطلبات</h3>
     <div id="orders-list"></div>
+  </div>
+</section>
+
+<section class="admin-panel" id="panel-team" hidden>
+  <div class="admin-panel-grid">
+    <form class="form-card" id="team-form">
+      <h3>إضافة عضو جديد للفريق</h3>
+      <div class="form-group"><label>البريد الإلكتروني *</label><input class="input" type="email" id="team-email" required></div>
+      <div class="form-group" style="margin-top:12px"><label>كلمة مرور مؤقتة *</label><input class="input" type="text" id="team-password" minlength="6" required></div>
+      <div style="margin-top:14px">
+        <label class="admin-check"><input type="checkbox" id="team-perm-products"> إدارة المنتجات</label>
+        <label class="admin-check"><input type="checkbox" id="team-perm-categories"> إدارة الأقسام</label>
+        <label class="admin-check"><input type="checkbox" id="team-perm-orders"> إدارة الطلبات</label>
+      </div>
+      <div class="admin-form-actions"><button class="btn btn-primary" id="team-save-btn">إضافة العضو</button></div>
+      <p class="admin-form-msg" id="team-form-msg"></p>
+    </form>
+    <div class="admin-list-card">
+      <h3>أعضاء الفريق</h3>
+      <div id="team-list"></div>
+    </div>
   </div>
 </section>
 

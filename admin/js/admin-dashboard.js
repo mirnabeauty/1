@@ -1,7 +1,12 @@
 import { auth, db } from "../../assets/js/firebase-init.js";
-import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { firebaseConfig } from "../../assets/js/firebase-config.js";
+import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  collection, getDocs, doc, addDoc, setDoc, updateDoc, deleteDoc,
+  onAuthStateChanged, signOut,
+  getAuth as getSecondaryAuth, createUserWithEmailAndPassword, signOut as signOutSecondary
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
   query, orderBy, writeBatch, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { IMGBB_API_KEY } from "./imgbb-config.js";
@@ -23,32 +28,61 @@ function toast(m){
 
 let categories = [];
 let products = [];
+let team = [];
 let dashboardInitialized = false;
+let currentAdmin = null; // { uid, email, role, permissions }
 
-onAuthStateChanged(auth, user => {
+onAuthStateChanged(auth, async user => {
   if (!user) { location.href = 'login.html'; return; }
+  let snap = await getDoc(doc(db, 'admins', user.uid));
+  if (!snap.exists()) {
+    await signOut(auth);
+    location.href = 'login.html?err=noaccess';
+    return;
+  }
+  let data = snap.data();
+  currentAdmin = { uid: user.uid, email: user.email, role: data.role, permissions: data.permissions || {} };
   document.getElementById('admin-user-email').textContent = user.email;
   initDashboard();
 });
 document.getElementById('admin-logout').addEventListener('click', () => signOut(auth));
 
-document.querySelectorAll('.admin-tab').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.admin-tab').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.querySelectorAll('.admin-panel').forEach(p => p.hidden = true);
-    document.getElementById('panel-' + btn.dataset.tab).hidden = false;
+function canSee(section){
+  return currentAdmin.role === 'owner' || currentAdmin.permissions[section] === true;
+}
+
+function applyPermissions(){
+  document.getElementById('team-tab-btn').hidden = currentAdmin.role !== 'owner';
+  ['products', 'categories', 'orders'].forEach(section => {
+    let btn = document.querySelector(`.admin-tab[data-tab="${section}"]`);
+    btn.hidden = !canSee(section);
   });
+  let firstVisible = [...document.querySelectorAll('.admin-tab')].find(b => !b.hidden);
+  if (firstVisible) activateTab(firstVisible);
+}
+
+function activateTab(btn){
+  document.querySelectorAll('.admin-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.admin-panel').forEach(p => p.hidden = true);
+  document.getElementById('panel-' + btn.dataset.tab).hidden = false;
+}
+
+document.querySelectorAll('.admin-tab').forEach(btn => {
+  btn.addEventListener('click', () => activateTab(btn));
 });
 
 async function initDashboard(){
   if (dashboardInitialized) return;
   dashboardInitialized = true;
+  applyPermissions();
   wireCategoryForm();
   wireProductForm();
-  await loadCategories();
-  await loadProducts();
-  await loadOrders();
+  wireTeamForm();
+  await loadCategories(); // categories are public-read and feed the product form's select regardless of the "categories" tab permission
+  if (canSee('products')) await loadProducts();
+  if (canSee('orders')) await loadOrders();
+  if (currentAdmin.role === 'owner') await loadTeam();
 }
 
 // ---- generic drag-reorder ----
@@ -305,5 +339,91 @@ function renderOrders(orders){
       await updateDoc(doc(db, 'orders', sel.dataset.status), { status: sel.value });
       toast('تم تحديث حالة الطلب');
     });
+  });
+}
+
+// ---- team (owner only) ----
+const PERMISSION_LABELS = { products: 'المنتجات', categories: 'الأقسام', orders: 'الطلبات' };
+
+async function loadTeam(){
+  let snap = await getDocs(collection(db, 'admins')); // no orderBy: the manually-created owner doc may lack createdAt
+  team = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  team.sort((a, b) => (a.role === 'owner' ? -1 : 1) - (b.role === 'owner' ? -1 : 1) || (a.email || '').localeCompare(b.email || ''));
+  renderTeamList();
+}
+
+function renderTeamList(){
+  let el = document.getElementById('team-list');
+  el.innerHTML = team.length ? team.map(m => {
+    let isOwner = m.role === 'owner';
+    let perms = m.permissions || {};
+    return `
+    <div class="admin-drag-row" data-id="${m.id}">
+      <span class="admin-row-title">${m.email || ''}${isOwner ? ' <small>(مالكة)</small>' : ''}</span>
+      <span class="admin-row-sub">
+        ${Object.keys(PERMISSION_LABELS).map(k => `<label style="margin-inline-end:10px"><input type="checkbox" data-team-perm="${m.id}:${k}" ${isOwner || perms[k] ? 'checked' : ''} ${isOwner ? 'disabled' : ''}> ${PERMISSION_LABELS[k]}</label>`).join('')}
+      </span>
+      <div class="admin-row-actions">
+        ${isOwner ? '' : `<button class="btn btn-outline" data-remove-team="${m.id}">إزالة</button>`}
+      </div>
+    </div>`;
+  }).join('') : '<div class="empty">لا يوجد أعضاء بعد.</div>';
+  el.querySelectorAll('[data-team-perm]').forEach(cb => {
+    cb.addEventListener('change', async () => {
+      let [uid, key] = cb.dataset.teamPerm.split(':');
+      await updateDoc(doc(db, 'admins', uid), { ['permissions.' + key]: cb.checked });
+      toast('تم تحديث صلاحيات العضو');
+      await loadTeam();
+    });
+  });
+  el.querySelectorAll('[data-remove-team]').forEach(b => {
+    b.addEventListener('click', async () => {
+      if (!confirm('إزالة هذا العضو من الفريق؟ (يفقد الوصول للوحة التحكم فوراً، حسابه بالدخول يبقى موجود بـ Firebase)')) return;
+      await deleteDoc(doc(db, 'admins', b.dataset.removeTeam));
+      await loadTeam();
+      toast('تمت الإزالة');
+    });
+  });
+}
+
+async function createTeamMember(email, password, permissions){
+  let secondaryApp = initializeApp(firebaseConfig, 'secondary-' + Date.now());
+  let secondaryAuth = getSecondaryAuth(secondaryApp);
+  try {
+    let cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+    let uid = cred.user.uid;
+    await signOutSecondary(secondaryAuth);
+    await setDoc(doc(db, 'admins', uid), { email, role: 'staff', permissions, createdAt: serverTimestamp() });
+  } finally {
+    await deleteApp(secondaryApp);
+  }
+}
+
+function wireTeamForm(){
+  let form = document.getElementById('team-form');
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    let msg = document.getElementById('team-form-msg');
+    let saveBtn = document.getElementById('team-save-btn');
+    msg.textContent = '';
+    saveBtn.disabled = true;
+    try {
+      let email = document.getElementById('team-email').value.trim();
+      let password = document.getElementById('team-password').value;
+      let permissions = {
+        products: document.getElementById('team-perm-products').checked,
+        categories: document.getElementById('team-perm-categories').checked,
+        orders: document.getElementById('team-perm-orders').checked
+      };
+      await createTeamMember(email, password, permissions);
+      form.reset();
+      await loadTeam();
+      toast('تمت إضافة العضو');
+    } catch (err) {
+      console.error(err);
+      msg.textContent = err.code === 'auth/email-already-in-use' ? 'هذا البريد مستخدم مسبقاً' : 'حدث خطأ أثناء إضافة العضو';
+    } finally {
+      saveBtn.disabled = false;
+    }
   });
 }

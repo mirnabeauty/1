@@ -15,7 +15,8 @@
 .admin-list-card h3{margin-top:0}
 .admin-list-card h3 small{color:var(--muted);font-weight:400;font-size:13px}
 .admin-drag-list{min-height:20px}
-.admin-drag-row{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--line);border-radius:14px;margin-bottom:10px;background:#fff;cursor:grab}
+.admin-drag-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px;border:1px solid var(--line);border-radius:14px;margin-bottom:10px;background:#fff;cursor:grab}
+.admin-row-sub label{font-size:13px;color:var(--muted);cursor:pointer}
 .admin-drag-row.dragging{opacity:.4}
 .drag-handle{color:var(--muted)}
 .admin-row-thumb{width:44px;height:44px;object-fit:contain;background:#f7f0f2;border-radius:10px}
