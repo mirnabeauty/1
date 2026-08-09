@@ -34,15 +34,22 @@ let currentAdmin = null; // { uid, email, role, permissions }
 
 onAuthStateChanged(auth, async user => {
   if (!user) { location.href = 'login.html'; return; }
-  let snap = await getDoc(doc(db, 'admins', user.uid));
+  let snap;
+  try {
+    snap = await getDoc(doc(db, 'admins', user.uid));
+  } catch (err) {
+    console.error(err);
+    document.querySelector('.admin-content').innerHTML = `<div class="empty" style="margin:20px">تعذر التحقق من صلاحياتچ (${err.code || err.message}).<br>غالباً قواعد أمان Firestore (Rules) فيها خطأ إملائي — راجعيها من Firebase Console.</div>`;
+    return;
+  }
   if (!snap.exists()) {
     await signOut(auth);
     location.href = 'login.html?err=noaccess';
     return;
   }
   let data = snap.data();
-  currentAdmin = { uid: user.uid, email: user.email, role: data.role, permissions: data.permissions || {} };
-  document.getElementById('admin-user-email').textContent = user.email;
+  currentAdmin = { uid: user.uid, email: user.email, role: String(data.role || '').trim().toLowerCase(), permissions: data.permissions || {} };
+  document.getElementById('admin-user-email').textContent = user.email + (currentAdmin.role === 'owner' ? ' (مالكة)' : '');
   initDashboard();
 });
 document.getElementById('admin-logout').addEventListener('click', () => signOut(auth));
@@ -58,7 +65,12 @@ function applyPermissions(){
     btn.hidden = !canSee(section);
   });
   let firstVisible = [...document.querySelectorAll('.admin-tab')].find(b => !b.hidden);
-  if (firstVisible) activateTab(firstVisible);
+  if (firstVisible) {
+    activateTab(firstVisible);
+    return true;
+  }
+  document.querySelector('.admin-content').innerHTML = `<div class="empty" style="margin:20px">هذا الحساب مسجل دخول بس ماله أي صلاحيات معروضة.<br>تأكدي إن مستند حسابچ بمجموعة <b>admins</b> فيه الحقل <b>role</b> = <code>owner</code> بالضبط (القيمة اللي انلقاتلچ حالياً: "${currentAdmin.role || '(فاضي)'}"), أو إن عندچ صلاحية وحدة على الأقل مفعّلة.</div>`;
+  return false;
 }
 
 function activateTab(btn){
@@ -75,7 +87,7 @@ document.querySelectorAll('.admin-tab').forEach(btn => {
 async function initDashboard(){
   if (dashboardInitialized) return;
   dashboardInitialized = true;
-  applyPermissions();
+  if (!applyPermissions()) return;
   wireCategoryForm();
   wireProductForm();
   wireTeamForm();
