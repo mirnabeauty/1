@@ -1,0 +1,1 @@
+document.addEventListener('submit',e=>{let bad=false;e.target.querySelectorAll('[required]').forEach(x=>{if(!x.value.trim()){x.style.borderColor='#b76e79';bad=true}});if(bad){e.preventDefault();UI.toast('يرجى إكمال الحقول المطلوبة')}});
