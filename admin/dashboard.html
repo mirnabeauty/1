@@ -1,0 +1,65 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>لوحة التحكم | ميرنا بيوتي</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="../assets/css/style.css"><link rel="stylesheet" href="../assets/css/admin.css"></head><body class="admin-body">
+<header class="admin-topbar"><div class="brand">ميرنا <span>بيوتي</span> · لوحة التحكم</div><div class="admin-topbar-actions"><span id="admin-user-email"></span><button class="btn btn-outline" id="admin-logout">تسجيل الخروج</button></div></header>
+<div class="admin-shell">
+<nav class="admin-tabs">
+<button class="admin-tab active" data-tab="products">المنتجات</button>
+<button class="admin-tab" data-tab="categories">الأقسام</button>
+<button class="admin-tab" data-tab="orders">الطلبات</button>
+</nav>
+<main class="admin-content">
+
+<section class="admin-panel" id="panel-products">
+  <div class="admin-panel-grid">
+    <form class="form-card" id="product-form">
+      <h3 id="product-form-title">إضافة منتج جديد</h3>
+      <input type="hidden" id="product-id">
+      <div class="form-group"><label>اسم المنتج *</label><input class="input" id="p-name" required></div>
+      <div class="form-group" style="margin-top:12px"><label>القسم *</label><select class="input" id="p-category" required></select></div>
+      <div class="form-grid" style="margin-top:12px">
+        <div class="form-group"><label>السعر *</label><input class="input" type="number" min="0" id="p-price" required></div>
+        <div class="form-group"><label>السعر قبل الخصم</label><input class="input" type="number" min="0" id="p-oldprice"></div>
+        <div class="form-group"><label>شارة (اختياري)</label><input class="input" id="p-badge" placeholder="جديد، حصري..."></div>
+        <div class="form-group"><label>التقييم</label><input class="input" type="number" step="0.1" min="0" max="5" id="p-rating" value="4.8"></div>
+      </div>
+      <div class="form-group" style="margin-top:12px"><label>الوصف</label><textarea class="input" id="p-desc" rows="3"></textarea></div>
+      <div class="form-group" style="margin-top:12px"><label>صورة المنتج</label><input class="input" type="file" id="p-image" accept="image/*"></div>
+      <label class="admin-check"><input type="checkbox" id="p-featured"> عرض ضمن "الأكثر طلباً" بالصفحة الرئيسية</label>
+      <div class="admin-form-actions"><button class="btn btn-primary" id="product-save-btn">حفظ المنتج</button><button type="button" class="btn btn-outline" id="product-cancel-btn" style="display:none">إلغاء التعديل</button></div>
+      <p class="admin-form-msg" id="product-form-msg"></p>
+    </form>
+    <div class="admin-list-card">
+      <h3>ترتيب المنتجات <small>(اسحبي الصف لإعادة الترتيب)</small></h3>
+      <div id="product-list" class="admin-drag-list"></div>
+    </div>
+  </div>
+</section>
+
+<section class="admin-panel" id="panel-categories" hidden>
+  <div class="admin-panel-grid">
+    <form class="form-card" id="category-form">
+      <h3 id="category-form-title">إضافة قسم جديد</h3>
+      <input type="hidden" id="category-id">
+      <div class="form-group"><label>اسم القسم *</label><input class="input" id="c-name" required></div>
+      <div class="form-group" style="margin-top:12px"><label>وصف قصير</label><input class="input" id="c-desc"></div>
+      <div class="admin-form-actions"><button class="btn btn-primary">حفظ القسم</button><button type="button" class="btn btn-outline" id="category-cancel-btn" style="display:none">إلغاء التعديل</button></div>
+      <p class="admin-form-msg" id="category-form-msg"></p>
+    </form>
+    <div class="admin-list-card">
+      <h3>الأقسام <small>(اسحبي الصف لإعادة الترتيب)</small></h3>
+      <div id="category-list" class="admin-drag-list"></div>
+    </div>
+  </div>
+</section>
+
+<section class="admin-panel" id="panel-orders" hidden>
+  <div class="admin-list-card">
+    <h3>الطلبات</h3>
+    <div id="orders-list"></div>
+  </div>
+</section>
+
+</main>
+</div>
+<div class="toast"></div>
+<script type="module" src="js/admin-dashboard.js"></script>
+</body></html>
