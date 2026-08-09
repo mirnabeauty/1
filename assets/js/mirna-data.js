@@ -58,9 +58,9 @@ async function submitOrder(order) {
   return { id: docRef.id, code };
 }
 
-window.MirnaData = { loadProducts, loadCategories, submitOrder };
-
-(async () => {
+const ready = (async () => {
   await Promise.all([loadProducts(), loadCategories()]);
   window.dispatchEvent(new CustomEvent("mirna:data-ready"));
 })();
+
+window.MirnaData = { loadProducts, loadCategories, submitOrder, ready };
