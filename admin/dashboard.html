@@ -23,7 +23,22 @@
         <div class="form-group"><label>التقييم</label><input class="input" type="number" step="0.1" min="0" max="5" id="p-rating" value="4.8"></div>
       </div>
       <div class="form-group" style="margin-top:12px"><label>الوصف</label><textarea class="input" id="p-desc" rows="3"></textarea></div>
-      <div class="form-group" style="margin-top:12px"><label>صورة المنتج</label><input class="input" type="file" id="p-image" accept="image/*"></div>
+      <div class="form-group" style="margin-top:12px">
+        <label>صورة المنتج</label>
+        <div class="image-input-row">
+          <input class="input" type="file" id="p-image" accept="image/*">
+          <button type="button" class="btn btn-outline" id="p-camera-btn">📷 تصوير المنتج</button>
+        </div>
+        <img id="p-image-preview" class="admin-image-preview" hidden alt="معاينة الصورة">
+        <div id="camera-panel" class="camera-panel" hidden>
+          <video id="camera-video" autoplay playsinline muted></video>
+          <canvas id="camera-canvas" hidden></canvas>
+          <div class="camera-actions">
+            <button type="button" class="btn btn-primary" id="camera-capture-btn">التقاط الصورة</button>
+            <button type="button" class="btn btn-outline" id="camera-close-btn">إلغاء</button>
+          </div>
+        </div>
+      </div>
       <label class="admin-check"><input type="checkbox" id="p-featured"> عرض ضمن "الأكثر طلباً" بالصفحة الرئيسية</label>
       <div class="admin-form-actions"><button class="btn btn-primary" id="product-save-btn">حفظ المنتج</button><button type="button" class="btn btn-outline" id="product-cancel-btn" style="display:none">إلغاء التعديل</button></div>
       <p class="admin-form-msg" id="product-form-msg"></p>

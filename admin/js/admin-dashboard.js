@@ -91,6 +91,7 @@ async function initDashboard(){
   if (!applyPermissions()) return;
   wireCategoryForm();
   wireProductForm();
+  wireCameraCapture();
   wireTeamForm();
   await loadCategories(); // categories are public-read and feed the product form's select regardless of the "categories" tab permission
   if (canSee('products')) await loadProducts();
@@ -309,6 +310,66 @@ async function saveProductOrder(ids){
   toast('تم تحديث الترتيب');
 }
 
+// ---- product photo capture (device/webcam camera) ----
+let cameraStream = null;
+
+function stopCamera(){
+  if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+  document.getElementById('camera-panel').hidden = true;
+}
+
+async function openCamera(){
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    toast('الكاميرا غير مدعومة بهذا المتصفح');
+    return;
+  }
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+  } catch (err) {
+    console.error(err);
+    toast('تعذر فتح الكاميرا، تأكدي من السماح للموقع بالوصول لها');
+    return;
+  }
+  document.getElementById('camera-video').srcObject = cameraStream;
+  document.getElementById('camera-panel').hidden = false;
+}
+
+function captureFromCamera(){
+  let video = document.getElementById('camera-video');
+  if (!video.videoWidth) { toast('الكاميرا لسه ما جاهزة، حاولي بعد ثانية'); return; }
+  let canvas = document.getElementById('camera-canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  canvas.toBlob(blob => {
+    if (!blob) { toast('تعذر التقاط الصورة'); return; }
+    let file = new File([blob], 'product-' + Date.now() + '.jpg', { type: 'image/jpeg' });
+    let dt = new DataTransfer();
+    dt.items.add(file);
+    document.getElementById('p-image').files = dt.files;
+    showImagePreview(URL.createObjectURL(file));
+    stopCamera();
+    toast('تم التقاط الصورة، اضغطي حفظ المنتج لرفعها');
+  }, 'image/jpeg', 0.92);
+}
+
+function showImagePreview(src){
+  let img = document.getElementById('p-image-preview');
+  if (!src) { img.hidden = true; img.removeAttribute('src'); return; }
+  img.src = src;
+  img.hidden = false;
+}
+
+function wireCameraCapture(){
+  document.getElementById('p-camera-btn').addEventListener('click', openCamera);
+  document.getElementById('camera-capture-btn').addEventListener('click', captureFromCamera);
+  document.getElementById('camera-close-btn').addEventListener('click', stopCamera);
+  document.getElementById('p-image').addEventListener('change', e => {
+    let f = e.target.files[0];
+    showImagePreview(f ? URL.createObjectURL(f) : '');
+  });
+}
+
 function wireProductForm(){
   let form = document.getElementById('product-form');
   document.getElementById('product-cancel-btn').addEventListener('click', resetProductForm);
@@ -358,6 +419,8 @@ function resetProductForm(){
   document.getElementById('product-form-title').textContent = 'إضافة منتج جديد';
   document.getElementById('product-cancel-btn').style.display = 'none';
   document.getElementById('product-form-msg').textContent = '';
+  stopCamera();
+  showImagePreview('');
 }
 
 function editProduct(id){
@@ -374,6 +437,7 @@ function editProduct(id){
   document.getElementById('p-featured').checked = !!p.featured;
   document.getElementById('product-form-title').textContent = 'تعديل المنتج';
   document.getElementById('product-cancel-btn').style.display = 'inline-flex';
+  showImagePreview(p.imageURL ? adminImgSrc(p.imageURL) : '');
 }
 
 async function deleteProduct(id){
