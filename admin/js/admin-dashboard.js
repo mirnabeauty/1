@@ -124,6 +124,57 @@ function wireDragList(container, onDrop){
   });
 }
 
+// ---- one-time import of the starter catalog (used when Firestore is still empty) ----
+const SEED_CATEGORIES = [
+  { name: 'مكياج', desc: 'ألوان ولمسات لكل إطلالة' },
+  { name: 'العناية بالبشرة', desc: 'روتين يومي لبشرة متألقة' },
+  { name: 'عطور', desc: 'روائح تبقى في الذاكرة' },
+  { name: 'العناية بالشعر', desc: 'تغذية ولمعان ونعومة' }
+];
+const SEED_PRODUCTS = [
+  { name: 'أحمر شفاه Velvet Rose', category: 'مكياج', price: 18500, oldPrice: 22000, badge: 'الأكثر مبيعاً', rating: 4.9, desc: 'لون مخملي غني وثبات طويل بتركيبة ناعمة لا تسبب الجفاف.', image: 'assets/images/products/photos/lipstick.jpg' },
+  { name: 'سيروم Glow Vitamin C', category: 'العناية بالبشرة', price: 32000, oldPrice: 36000, badge: 'جديد', rating: 4.8, desc: 'سيروم إشراقة يومي بفيتامين C يساعد على توحيد مظهر البشرة.', image: 'assets/images/products/photos/serum.jpg' },
+  { name: 'عطر Mirna Bloom 50ml', category: 'عطور', price: 45000, oldPrice: 52000, badge: 'حصري', rating: 4.9, desc: 'رائحة أنثوية ناعمة بمزيج زهري دافئ يناسب الاستخدام اليومي.', image: 'assets/images/products/photos/perfume.jpg' },
+  { name: 'ماسكارا Lash Lift', category: 'مكياج', price: 16000, oldPrice: 19000, badge: '-15%', rating: 4.7, desc: 'تكثيف وتطويل للرموش مع فرشاة دقيقة ونتيجة طبيعية واضحة.', image: 'assets/images/products/photos/mascara.jpg' },
+  { name: 'كريم ترطيب Hydra Silk', category: 'العناية بالبشرة', price: 27500, oldPrice: 0, badge: '', rating: 4.6, desc: 'مرطب خفيف للاستخدام اليومي يمنح ملمساً ناعماً ومريحاً.', image: 'assets/images/products/photos/cream.jpg' },
+  { name: 'زيت شعر Argan Repair', category: 'العناية بالشعر', price: 24000, oldPrice: 28000, badge: 'مختار لك', rating: 4.8, desc: 'زيت أرغان خفيف للمساعدة على تنعيم الشعر وتقليل مظهر التقصف.', image: 'assets/images/products/photos/hair-oil.jpg' },
+  { name: 'باليت Nude Elegance', category: 'مكياج', price: 38000, oldPrice: 43000, badge: 'مميز', rating: 4.9, desc: 'درجات يومية متعددة بلمسات مطفية ولامعة تناسب مختلف الإطلالات.', image: 'assets/images/products/photos/palette.jpg' },
+  { name: 'غسول Pure Balance', category: 'العناية بالبشرة', price: 21000, oldPrice: 0, badge: '', rating: 4.7, desc: 'غسول لطيف ينظف البشرة ويتركها بإحساس منعش دون شد.', image: 'assets/images/products/photos/cleanser.jpg' },
+  { name: 'كونسيلر Perfect Cover', category: 'مكياج', price: 17500, oldPrice: 20000, badge: 'مطلوب', rating: 4.6, desc: 'تغطية كاملة لعيوب البشرة والهالات مع ملمس خفيف لا يشعر بالثقل.', image: 'assets/images/products/photos/concealer.jpg' },
+  { name: 'أيلاينر Precision Liner', category: 'مكياج', price: 14000, oldPrice: 0, badge: '', rating: 4.7, desc: 'رأس دقيق يرسم خط عين حاد وثابت طوال اليوم دون تلطخ.', image: 'assets/images/products/photos/eyeliner.jpg' },
+  { name: 'هايلايتر Golden Glow', category: 'مكياج', price: 23000, oldPrice: 27000, badge: 'جديد', rating: 4.8, desc: 'بودرة مضغوطة تمنح إشراقة ذهبية طبيعية على عظمة الخد والأنف.', image: 'assets/images/products/photos/highlighter.jpg' },
+  { name: 'واقي شمس Sun Shield SPF50', category: 'العناية بالبشرة', price: 26000, oldPrice: 0, badge: 'أساسي يومي', rating: 4.9, desc: 'حماية عالية من أشعة الشمس بتركيبة خفيفة تناسب طقس العراق الحار.', image: 'assets/images/products/photos/sunscreen.jpg' },
+  { name: 'تونر Rose Water', category: 'العناية بالبشرة', price: 19000, oldPrice: 22000, badge: '', rating: 4.7, desc: 'ماء ورد نقي ينعش البشرة ويهيئها لامتصاص أفضل لبقية روتين العناية.', image: 'assets/images/products/photos/toner.jpg' },
+  { name: 'ماسك طيني Deep Clean', category: 'العناية بالبشرة', price: 22500, oldPrice: 0, badge: 'مختار لك', rating: 4.6, desc: 'ماسك طين طبيعي يسحب الشوائب ويقلل لمعان البشرة الدهنية.', image: 'assets/images/products/photos/clay-mask.jpg' },
+  { name: 'عطر Oud Al Layl', category: 'عطور', price: 48000, oldPrice: 55000, badge: 'حصري', rating: 4.9, desc: 'مزيج عود شرقي دافئ بثبات طويل يناسب السهرات والمناسبات.', image: 'assets/images/products/photos/oud-perfume.jpg' },
+  { name: 'بادي مست Vanilla Musk', category: 'عطور', price: 21000, oldPrice: 0, badge: 'جديد', rating: 4.7, desc: 'رذاذ جسم يومي برائحة فانيليا ناعمة تدوم طوال اليوم.', image: 'assets/images/products/photos/body-mist.jpg' },
+  { name: 'شامبو Keratin Smooth', category: 'العناية بالشعر', price: 20000, oldPrice: 23000, badge: '-15%', rating: 4.6, desc: 'ينظف فروة الرأس ويقلل التجعد مع تركيبة غنية بالكيراتين.', image: 'assets/images/products/photos/shampoo.jpg' },
+  { name: 'سيروم شعر Anti Frizz', category: 'العناية بالشعر', price: 18500, oldPrice: 0, badge: '', rating: 4.5, desc: 'سيروم خفيف يروّض الشعر المجعد ويمنحه لمعاناً فورياً دون دهنية.', image: 'assets/images/products/photos/hair-serum.jpg' }
+];
+
+async function seedLocalCatalog(){
+  if (!confirm(`رح نضيف ${SEED_CATEGORIES.length} أقسام و${SEED_PRODUCTS.length} منتج جاهزين كبداية لمتجرچ. تريدين المتابعة؟`)) return;
+  document.querySelectorAll('.seed-catalog-btn').forEach(b => b.disabled = true);
+  try {
+    let batch = writeBatch(db);
+    SEED_CATEGORIES.forEach((c, i) => batch.set(doc(collection(db, 'categories')), { name: c.name, desc: c.desc, sortOrder: i }));
+    SEED_PRODUCTS.forEach((p, i) => batch.set(doc(collection(db, 'products')), {
+      name: p.name, category: p.category, price: p.price, oldPrice: p.oldPrice || 0,
+      badge: p.badge || '', rating: p.rating || 4.8, desc: p.desc || '', featured: false,
+      sortOrder: i, imageURL: p.image
+    }));
+    await batch.commit();
+    await loadCategories();
+    if (canSee('products')) await loadProducts();
+    toast('تم استيراد الكتالوج بنجاح');
+  } catch (err) {
+    console.error(err);
+    toast('صار خطأ أثناء الاستيراد، حاولي مرة أخرى');
+  } finally {
+    document.querySelectorAll('.seed-catalog-btn').forEach(b => b.disabled = false);
+  }
+}
+
 // ---- categories ----
 async function loadCategories(){
   let snap = await getDocs(query(collection(db, 'categories'), orderBy('sortOrder')));
@@ -150,10 +201,11 @@ function renderCategoryList(){
         <button class="btn btn-soft" data-edit-cat="${c.id}">تعديل</button>
         <button class="btn btn-outline" data-del-cat="${c.id}">حذف</button>
       </div>
-    </div>`).join('') : '<div class="empty">لا يوجد أقسام بعد.</div>';
+    </div>`).join('') : `<div class="empty">لا يوجد أقسام بعد.<br><button type="button" class="btn btn-primary seed-catalog-btn" style="margin-top:14px">استيراد كتالوج جاهز (4 أقسام + 18 منتج)</button></div>`;
   wireDragList(el, saveCategoryOrder);
   el.querySelectorAll('[data-edit-cat]').forEach(b => b.addEventListener('click', () => editCategory(b.dataset.editCat)));
   el.querySelectorAll('[data-del-cat]').forEach(b => b.addEventListener('click', () => deleteCategory(b.dataset.delCat)));
+  el.querySelector('.seed-catalog-btn')?.addEventListener('click', seedLocalCatalog);
 }
 
 async function saveCategoryOrder(ids){
@@ -225,22 +277,28 @@ async function loadProducts(){
   renderProductList();
 }
 
+function adminImgSrc(url){
+  if (!url) return '';
+  return /^https?:\/\//i.test(url) ? url : '../' + url;
+}
+
 function renderProductList(){
   let el = document.getElementById('product-list');
   el.innerHTML = products.length ? products.map(p => `
     <div class="admin-drag-row" draggable="true" data-id="${p.id}">
       <span class="drag-handle">⠿</span>
-      <img class="admin-row-thumb" src="${p.imageURL || ''}" alt="">
+      <img class="admin-row-thumb" src="${adminImgSrc(p.imageURL)}" alt="">
       <span class="admin-row-title">${p.name}</span>
       <span class="admin-row-sub">${p.category || ''} · ${Number(p.price || 0).toLocaleString('ar-IQ')} د.ع${p.featured ? ' · مميز' : ''}</span>
       <div class="admin-row-actions">
         <button class="btn btn-soft" data-edit-p="${p.id}">تعديل</button>
         <button class="btn btn-outline" data-del-p="${p.id}">حذف</button>
       </div>
-    </div>`).join('') : '<div class="empty">لا يوجد منتجات بعد.</div>';
+    </div>`).join('') : `<div class="empty">لا يوجد منتجات بعد.<br><button type="button" class="btn btn-primary seed-catalog-btn" style="margin-top:14px">استيراد كتالوج جاهز (4 أقسام + 18 منتج)</button></div>`;
   wireDragList(el, saveProductOrder);
   el.querySelectorAll('[data-edit-p]').forEach(b => b.addEventListener('click', () => editProduct(b.dataset.editP)));
   el.querySelectorAll('[data-del-p]').forEach(b => b.addEventListener('click', () => deleteProduct(b.dataset.delP)));
+  el.querySelector('.seed-catalog-btn')?.addEventListener('click', seedLocalCatalog);
 }
 
 async function saveProductOrder(ids){
