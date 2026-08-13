@@ -1,6 +1,6 @@
 import { db } from "./firebase-init.js";
 import {
-  collection, getDocs, query, orderBy, addDoc, serverTimestamp
+  collection, getDocs, getDoc, doc, query, orderBy, addDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 function normalizeProduct(id, v) {
@@ -47,6 +47,29 @@ async function loadCategories() {
   return window.CATEGORIES;
 }
 
+function applySettingsToDOM(s) {
+  if (s.whatsapp) {
+    let digits = String(s.whatsapp).replace(/[^0-9]/g, "");
+    if (digits) document.querySelectorAll('[data-social="whatsapp"]').forEach(a => a.href = `https://wa.me/${digits}`);
+  }
+  if (s.instagram) document.querySelectorAll('[data-social="instagram"]').forEach(a => a.href = s.instagram);
+  if (s.facebook) document.querySelectorAll('[data-social="facebook"]').forEach(a => a.href = s.facebook);
+  if (s.contactEmail) document.querySelectorAll('[data-contact-email]').forEach(el => el.textContent = s.contactEmail);
+  if (s.contactPhone) document.querySelectorAll('[data-contact-phone]').forEach(el => el.textContent = s.contactPhone);
+}
+
+async function loadSettings() {
+  try {
+    const snap = await getDoc(doc(db, "settings", "general"));
+    if (snap.exists()) {
+      window.MIRNA_SETTINGS = snap.data();
+      applySettingsToDOM(snap.data());
+    }
+  } catch (err) {
+    console.warn("تعذر تحميل إعدادات المتجر من Firebase:", err);
+  }
+}
+
 async function submitOrder(order) {
   const code = "MB-" + Date.now().toString().slice(-6);
   const docRef = await addDoc(collection(db, "orders"), {
@@ -59,8 +82,8 @@ async function submitOrder(order) {
 }
 
 const ready = (async () => {
-  await Promise.all([loadProducts(), loadCategories()]);
+  await Promise.all([loadProducts(), loadCategories(), loadSettings()]);
   window.dispatchEvent(new CustomEvent("mirna:data-ready"));
 })();
 
-window.MirnaData = { loadProducts, loadCategories, submitOrder, ready };
+window.MirnaData = { loadProducts, loadCategories, loadSettings, submitOrder, ready };
