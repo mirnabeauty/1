@@ -6,6 +6,7 @@
 <button class="admin-tab" data-tab="categories">الأقسام</button>
 <button class="admin-tab" data-tab="orders">الطلبات</button>
 <button class="admin-tab" data-tab="team" id="team-tab-btn" hidden>الفريق</button>
+<button class="admin-tab" data-tab="settings" id="settings-tab-btn" hidden>الإعدادات</button>
 </nav>
 <main class="admin-content">
 
@@ -93,6 +94,81 @@
       <div id="team-list"></div>
     </div>
   </div>
+</section>
+
+<section class="admin-panel" id="panel-settings" hidden>
+  <form class="form-card" id="general-settings-form" style="max-width:640px;margin-bottom:20px">
+    <h3>معلومات المتجر والتواصل</h3>
+    <p style="color:var(--muted);font-size:14px;line-height:1.9;margin-top:-6px">هذي المعلومات تنعرض تلقائياً بروابط التواصل الاجتماعي بفوتر الموقع وبصفحة "تواصل معنا".</p>
+    <div class="form-grid" style="margin-top:12px">
+      <div class="form-group"><label>رقم واتساب (مع كود الدولة، بدون +)</label><input class="input" id="gs-whatsapp" placeholder="9647xxxxxxxxx"></div>
+      <div class="form-group"><label>رقم الهاتف المعروض</label><input class="input" id="gs-phone" placeholder="+964 7XX XXX XXXX"></div>
+      <div class="form-group"><label>رابط إنستغرام</label><input class="input" id="gs-instagram" placeholder="https://instagram.com/..."></div>
+      <div class="form-group"><label>رابط فيسبوك</label><input class="input" id="gs-facebook" placeholder="https://facebook.com/..."></div>
+      <div class="form-group full" style="grid-column:1/-1"><label>البريد الإلكتروني المعروض</label><input class="input" type="email" id="gs-email" placeholder="hello@mirnabeauty.com"></div>
+    </div>
+    <div class="admin-form-actions"><button class="btn btn-primary" id="general-settings-save-btn">حفظ المعلومات</button></div>
+    <p class="admin-form-msg" id="general-settings-msg"></p>
+  </form>
+
+  <form class="form-card" id="telegram-form" style="max-width:640px">
+    <h3>إشعارات تلجرام للطلبات الجديدة</h3>
+    <p style="color:var(--muted);font-size:14px;line-height:1.9;margin-top:-6px">
+      أنشئي بوت جديد عن طريق <b>@BotFather</b> بتلجرام واحصلي على "التوكن"، بعدين ارسلي أي رسالة للبوت من حسابچ
+      وافتحي هذا الرابط بالمتصفح (غيّري &lt;التوكن&gt; بتوكن بوتچ) لتحصلي على رقم الـ Chat ID:<br>
+      <code style="word-break:break-all">https://api.telegram.org/bot&lt;التوكن&gt;/getUpdates</code><br>
+      ملاحظة: الإشعار يوصلچ بس ولوحة التحكم مفتوحة عندچ بالمتصفح.
+    </p>
+    <div class="form-group" style="margin-top:12px"><label>توكن البوت (Bot Token) *</label><input class="input" id="tg-token" placeholder="123456789:ABCdef..."></div>
+    <div class="form-group" style="margin-top:12px"><label>Chat ID *</label><input class="input" id="tg-chatid" placeholder="123456789"></div>
+    <label class="admin-check"><input type="checkbox" id="tg-enabled"> تفعيل إشعارات تلجرام</label>
+    <div class="admin-form-actions">
+      <button class="btn btn-primary" id="telegram-save-btn">حفظ الإعدادات</button>
+      <button type="button" class="btn btn-outline" id="telegram-test-btn">إرسال إشعار تجريبي</button>
+    </div>
+    <p class="admin-form-msg" id="telegram-form-msg"></p>
+  </form>
+
+  <form class="form-card" id="email-form" style="max-width:640px;margin-top:20px">
+    <h3>إشعارات البريد الإلكتروني للطلبات الجديدة</h3>
+    <p style="color:var(--muted);font-size:14px;line-height:1.9;margin-top:-6px">
+      نستخدم خدمة <b>EmailJS</b> المجانية لإرسال إيميل مباشرة من المتصفح بدون سيرفر خلفي.
+      سوّي حساب مجاني على <b>emailjs.com</b>، اربطي بريدچ (Email Service)، أنشئي قالب رسالة (Email Template)
+      فيه متغيرات <code>order_code</code> و<code>customer_name</code> و<code>phone</code> و<code>total</code> و<code>items</code>،
+      وانسخي الـ Service ID والـ Template ID والـ Public Key من إعدادات حسابچ. نفس ملاحظة تلجرام: يوصل بس ولوحة التحكم مفتوحة عندچ.
+    </p>
+    <div class="form-group" style="margin-top:12px"><label>البريد اللي توصله الإشعارات *</label><input class="input" type="email" id="em-to" placeholder="hello@mirnabeauty.com"></div>
+    <div class="form-grid" style="margin-top:12px">
+      <div class="form-group"><label>Service ID *</label><input class="input" id="em-service" placeholder="service_xxxxxxx"></div>
+      <div class="form-group"><label>Template ID *</label><input class="input" id="em-template" placeholder="template_xxxxxxx"></div>
+      <div class="form-group full" style="grid-column:1/-1"><label>Public Key *</label><input class="input" id="em-publickey" placeholder="public key"></div>
+    </div>
+    <label class="admin-check"><input type="checkbox" id="em-enabled"> تفعيل إشعارات البريد الإلكتروني</label>
+    <div class="admin-form-actions">
+      <button class="btn btn-primary" id="email-save-btn">حفظ الإعدادات</button>
+      <button type="button" class="btn btn-outline" id="email-test-btn">إرسال إشعار تجريبي</button>
+    </div>
+    <p class="admin-form-msg" id="email-form-msg"></p>
+  </form>
+
+  <form class="form-card" id="social-form" style="max-width:640px;margin-top:20px">
+    <h3>نشر المنتجات الجديدة تلقائياً على فيسبوك وإنستغرام</h3>
+    <p style="color:var(--muted);font-size:14px;line-height:1.9;margin-top:-6px">
+      يحتاج صفحة فيسبوك للمتجر + حساب إنستغرام بزنس مربوط بيها + تطبيق Meta for Developers
+      (بوضع Development كافي، بدون مراجعة Meta، بس تضيفين حسابچ كـ Admin/Tester على التطبيق).
+      بعد ما تسوين هذا، احصلي على Page Access Token طويل الأمد و Page ID و Instagram Business Account ID من Graph API Explorer.
+      النشر يصير تلقائي عند إضافة أي منتج جديد من تبويب "المنتجات" (يحتاج صورة مرفوعة للمنتج)، وبس ولوحة التحكم مفتوحة عندچ.
+    </p>
+    <div class="form-group" style="margin-top:12px"><label>Facebook Page Access Token</label><input class="input" id="sc-token" placeholder="EAAxxxxxxxxxxxxx"></div>
+    <div class="form-grid" style="margin-top:12px">
+      <div class="form-group"><label>Facebook Page ID</label><input class="input" id="sc-pageid" placeholder="10xxxxxxxxxxxxx"></div>
+      <div class="form-group"><label>Instagram Business Account ID</label><input class="input" id="sc-igid" placeholder="17xxxxxxxxxxxxx"></div>
+    </div>
+    <label class="admin-check"><input type="checkbox" id="sc-fb"> نشر تلقائي على فيسبوك</label>
+    <label class="admin-check"><input type="checkbox" id="sc-ig"> نشر تلقائي على إنستغرام</label>
+    <div class="admin-form-actions"><button class="btn btn-primary" id="social-save-btn">حفظ الإعدادات</button></div>
+    <p class="admin-form-msg" id="social-form-msg"></p>
+  </form>
 </section>
 
 </main>

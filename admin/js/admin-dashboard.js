@@ -60,6 +60,7 @@ function canSee(section){
 
 function applyPermissions(){
   document.getElementById('team-tab-btn').hidden = currentAdmin.role !== 'owner';
+  document.getElementById('settings-tab-btn').hidden = currentAdmin.role !== 'owner';
   ['products', 'categories', 'orders'].forEach(section => {
     let btn = document.querySelector(`.admin-tab[data-tab="${section}"]`);
     btn.hidden = !canSee(section);
@@ -93,13 +94,23 @@ async function initDashboard(){
   wireProductForm();
   wireCameraCapture();
   wireTeamForm();
+  wireTelegramForm();
+  wireGeneralSettingsForm();
+  wireEmailForm();
+  wireSocialForm();
   await loadCategories(); // categories are public-read and feed the product form's select regardless of the "categories" tab permission
   if (canSee('products')) await loadProducts();
   if (canSee('orders')) {
     loadOrders();
     if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
   }
-  if (currentAdmin.role === 'owner') await loadTeam();
+  if (currentAdmin.role === 'owner') {
+    await loadTeam();
+    await loadTelegramSettings();
+    await loadGeneralSettings();
+    await loadEmailSettings();
+    await loadSocialSettings();
+  }
 }
 
 // ---- generic drag-reorder ----
@@ -393,6 +404,7 @@ function wireProductForm(){
       };
       let file = document.getElementById('p-image').files[0];
       let docId = id;
+      let isNew = !docId;
       if (!docId) {
         let newDoc = await addDoc(collection(db, 'products'), { ...data, sortOrder: products.length, imageURL: '' });
         docId = newDoc.id;
@@ -404,6 +416,7 @@ function wireProductForm(){
       resetProductForm();
       await loadProducts();
       toast('تم حفظ المنتج');
+      if (isNew && data.imageURL) postProductToSocial(data);
     } catch (err) {
       console.error(err);
       msg.textContent = 'حدث خطأ أثناء الحفظ، حاولي مرة أخرى';
@@ -498,6 +511,273 @@ function notifyNewOrder(order){
       body: `${order.code || ''} — ${order.customerName || ''} — ${Number(order.total || 0).toLocaleString('ar-IQ')} د.ع`
     });
   }
+  if (telegramSettings.enabled && telegramSettings.token && telegramSettings.chatId) {
+    let itemsText = (order.items || []).map(i => `- ${i.name} ×${i.qty}`).join('\n');
+    let text = `🛍 طلب جديد!\nالرقم: ${order.code || ''}\nالزبونة: ${order.customerName || ''}\nالهاتف: ${order.phone || ''}\nالمحافظة: ${order.province || ''} - ${order.district || ''}\nالمجموع: ${Number(order.total || 0).toLocaleString('ar-IQ')} د.ع\n\nالمنتجات:\n${itemsText}`;
+    sendTelegramMessage(telegramSettings.token, telegramSettings.chatId, text);
+  }
+  sendEmailNotification(order);
+}
+
+// ---- settings: telegram notifications (owner only) ----
+let telegramSettings = { enabled: false, token: '', chatId: '' };
+
+async function sendTelegramMessage(token, chatId, text){
+  try {
+    let res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text })
+    });
+    let json = await res.json();
+    return !!json.ok;
+  } catch (err) {
+    console.error(err);
+    return false;
+  }
+}
+
+async function loadTelegramSettings(){
+  try {
+    let snap = await getDoc(doc(db, 'settings', 'telegram'));
+    if (snap.exists()) {
+      let d = snap.data();
+      telegramSettings = { enabled: !!d.enabled, token: d.token || '', chatId: d.chatId || '' };
+      let tokenEl = document.getElementById('tg-token'), chatEl = document.getElementById('tg-chatid'), enEl = document.getElementById('tg-enabled');
+      if (tokenEl) { tokenEl.value = telegramSettings.token; chatEl.value = telegramSettings.chatId; enEl.checked = telegramSettings.enabled; }
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function wireTelegramForm(){
+  let form = document.getElementById('telegram-form');
+  if (!form) return;
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    let msg = document.getElementById('telegram-form-msg');
+    msg.textContent = '';
+    try {
+      telegramSettings = {
+        token: document.getElementById('tg-token').value.trim(),
+        chatId: document.getElementById('tg-chatid').value.trim(),
+        enabled: document.getElementById('tg-enabled').checked
+      };
+      await setDoc(doc(db, 'settings', 'telegram'), telegramSettings);
+      toast('تم حفظ إعدادات تلجرام');
+    } catch (err) {
+      console.error(err);
+      msg.textContent = 'حدث خطأ أثناء الحفظ، حاولي مرة أخرى';
+    }
+  });
+  document.getElementById('telegram-test-btn').addEventListener('click', async () => {
+    let btn = document.getElementById('telegram-test-btn');
+    let token = document.getElementById('tg-token').value.trim();
+    let chatId = document.getElementById('tg-chatid').value.trim();
+    if (!token || !chatId) { toast('أدخلي التوكن و Chat ID أولاً'); return; }
+    btn.disabled = true;
+    let ok = await sendTelegramMessage(token, chatId, '✅ رسالة تجريبية من لوحة تحكم ميرنا بيوتي — الإعداد شغّال تمام!');
+    btn.disabled = false;
+    toast(ok ? 'وصلت الرسالة التجريبية بنجاح' : 'تعذر الإرسال، تأكدي من التوكن و Chat ID');
+  });
+}
+
+// ---- settings: store & contact info (public-read, feeds the storefront footer/contact page) ----
+async function loadGeneralSettings(){
+  try {
+    let snap = await getDoc(doc(db, 'settings', 'general'));
+    if (!snap.exists()) return;
+    let d = snap.data();
+    let map = { 'gs-whatsapp': 'whatsapp', 'gs-phone': 'contactPhone', 'gs-instagram': 'instagram', 'gs-facebook': 'facebook', 'gs-email': 'contactEmail' };
+    Object.entries(map).forEach(([elId, key]) => { let el = document.getElementById(elId); if (el) el.value = d[key] || ''; });
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function wireGeneralSettingsForm(){
+  let form = document.getElementById('general-settings-form');
+  if (!form) return;
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    let msg = document.getElementById('general-settings-msg');
+    msg.textContent = '';
+    try {
+      await setDoc(doc(db, 'settings', 'general'), {
+        whatsapp: document.getElementById('gs-whatsapp').value.trim(),
+        contactPhone: document.getElementById('gs-phone').value.trim(),
+        instagram: document.getElementById('gs-instagram').value.trim(),
+        facebook: document.getElementById('gs-facebook').value.trim(),
+        contactEmail: document.getElementById('gs-email').value.trim()
+      });
+      toast('تم حفظ المعلومات');
+    } catch (err) {
+      console.error(err);
+      msg.textContent = 'حدث خطأ أثناء الحفظ، حاولي مرة أخرى (تأكدي إن قواعد Firestore تسمح بالكتابة على settings/general)';
+    }
+  });
+}
+
+// ---- settings: email notifications via EmailJS (owner only) ----
+let emailSettings = { enabled: false, to: '', serviceId: '', templateId: '', publicKey: '' };
+
+async function sendEmailNotification(order){
+  if (!emailSettings.enabled || !emailSettings.serviceId || !emailSettings.templateId || !emailSettings.publicKey) return false;
+  try {
+    let itemsText = (order.items || []).map(i => `${i.name} ×${i.qty}`).join('، ');
+    let res = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        service_id: emailSettings.serviceId,
+        template_id: emailSettings.templateId,
+        user_id: emailSettings.publicKey,
+        template_params: {
+          to_email: emailSettings.to,
+          order_code: order.code || '',
+          customer_name: order.customerName || '',
+          phone: order.phone || '',
+          total: Number(order.total || 0).toLocaleString('ar-IQ') + ' د.ع',
+          items: itemsText,
+          province: order.province || '',
+          address: order.address || ''
+        }
+      })
+    });
+    return res.ok;
+  } catch (err) {
+    console.error(err);
+    return false;
+  }
+}
+
+async function loadEmailSettings(){
+  try {
+    let snap = await getDoc(doc(db, 'settings', 'email'));
+    if (!snap.exists()) return;
+    let d = snap.data();
+    emailSettings = { enabled: !!d.enabled, to: d.to || '', serviceId: d.serviceId || '', templateId: d.templateId || '', publicKey: d.publicKey || '' };
+    let ids = { 'em-to': 'to', 'em-service': 'serviceId', 'em-template': 'templateId', 'em-publickey': 'publicKey' };
+    Object.entries(ids).forEach(([elId, key]) => { let el = document.getElementById(elId); if (el) el.value = emailSettings[key]; });
+    let enEl = document.getElementById('em-enabled'); if (enEl) enEl.checked = emailSettings.enabled;
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function wireEmailForm(){
+  let form = document.getElementById('email-form');
+  if (!form) return;
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    let msg = document.getElementById('email-form-msg');
+    msg.textContent = '';
+    try {
+      emailSettings = {
+        to: document.getElementById('em-to').value.trim(),
+        serviceId: document.getElementById('em-service').value.trim(),
+        templateId: document.getElementById('em-template').value.trim(),
+        publicKey: document.getElementById('em-publickey').value.trim(),
+        enabled: document.getElementById('em-enabled').checked
+      };
+      await setDoc(doc(db, 'settings', 'email'), emailSettings);
+      toast('تم حفظ إعدادات البريد');
+    } catch (err) {
+      console.error(err);
+      msg.textContent = 'حدث خطأ أثناء الحفظ، حاولي مرة أخرى';
+    }
+  });
+  document.getElementById('email-test-btn').addEventListener('click', async () => {
+    let btn = document.getElementById('email-test-btn');
+    let to = document.getElementById('em-to').value.trim();
+    let serviceId = document.getElementById('em-service').value.trim();
+    let templateId = document.getElementById('em-template').value.trim();
+    let publicKey = document.getElementById('em-publickey').value.trim();
+    if (!to || !serviceId || !templateId || !publicKey) { toast('عبّي كل الحقول أولاً'); return; }
+    btn.disabled = true;
+    let prev = emailSettings;
+    emailSettings = { enabled: true, to, serviceId, templateId, publicKey };
+    let ok = await sendEmailNotification({ code: 'TEST-0001', customerName: 'زبونة تجريبية', phone: '07xxxxxxxxx', total: 1000, items: [{ name: 'منتج تجريبي', qty: 1 }], province: 'بغداد', address: 'عنوان تجريبي' });
+    emailSettings = prev;
+    btn.disabled = false;
+    toast(ok ? 'تم إرسال الإيميل التجريبي بنجاح' : 'تعذر الإرسال، تأكدي من البيانات');
+  });
+}
+
+// ---- settings: auto-post new products to Facebook/Instagram (owner only) ----
+let socialSettings = { fbEnabled: false, igEnabled: false, token: '', pageId: '', igId: '' };
+
+async function postProductToSocial(product){
+  if (!socialSettings.token || !product.imageURL) return;
+  let caption = `${product.name}\n${Number(product.price || 0).toLocaleString('ar-IQ')} د.ع\n${product.desc || ''}\n\n#ميرنا_بيوتي #MirnaBeauty`;
+  if (socialSettings.fbEnabled && socialSettings.pageId) {
+    try {
+      await fetch(`https://graph.facebook.com/v20.0/${socialSettings.pageId}/photos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: product.imageURL, caption, access_token: socialSettings.token })
+      });
+    } catch (err) {
+      console.error('فشل النشر على فيسبوك', err);
+    }
+  }
+  if (socialSettings.igEnabled && socialSettings.igId) {
+    try {
+      let createRes = await fetch(`https://graph.facebook.com/v20.0/${socialSettings.igId}/media`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_url: product.imageURL, caption, access_token: socialSettings.token })
+      });
+      let createJson = await createRes.json();
+      if (createJson.id) {
+        await fetch(`https://graph.facebook.com/v20.0/${socialSettings.igId}/media_publish`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ creation_id: createJson.id, access_token: socialSettings.token })
+        });
+      }
+    } catch (err) {
+      console.error('فشل النشر على إنستغرام', err);
+    }
+  }
+}
+
+async function loadSocialSettings(){
+  try {
+    let snap = await getDoc(doc(db, 'settings', 'social'));
+    if (!snap.exists()) return;
+    let d = snap.data();
+    socialSettings = { fbEnabled: !!d.fbEnabled, igEnabled: !!d.igEnabled, token: d.token || '', pageId: d.pageId || '', igId: d.igId || '' };
+    let tokenEl = document.getElementById('sc-token'), pageEl = document.getElementById('sc-pageid'), igEl = document.getElementById('sc-igid'), fbEl = document.getElementById('sc-fb'), igCheckEl = document.getElementById('sc-ig');
+    if (tokenEl) { tokenEl.value = socialSettings.token; pageEl.value = socialSettings.pageId; igEl.value = socialSettings.igId; fbEl.checked = socialSettings.fbEnabled; igCheckEl.checked = socialSettings.igEnabled; }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function wireSocialForm(){
+  let form = document.getElementById('social-form');
+  if (!form) return;
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    let msg = document.getElementById('social-form-msg');
+    msg.textContent = '';
+    try {
+      socialSettings = {
+        token: document.getElementById('sc-token').value.trim(),
+        pageId: document.getElementById('sc-pageid').value.trim(),
+        igId: document.getElementById('sc-igid').value.trim(),
+        fbEnabled: document.getElementById('sc-fb').checked,
+        igEnabled: document.getElementById('sc-ig').checked
+      };
+      await setDoc(doc(db, 'settings', 'social'), socialSettings);
+      toast('تم حفظ إعدادات النشر التلقائي');
+    } catch (err) {
+      console.error(err);
+      msg.textContent = 'حدث خطأ أثناء الحفظ، حاولي مرة أخرى';
+    }
+  });
 }
 
 function renderOrders(orders){
